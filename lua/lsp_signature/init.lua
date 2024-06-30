@@ -17,8 +17,15 @@ local manager = {
 local path_sep = vim.loop.os_uname().sysname == 'Windows' and '\\' or '/'
 
 local function path_join(...)
-  return table.concat(vim.tbl_flatten({ ... }), path_sep)
+  local tbl_flatten = function(t)
+    if vim.fn.has('nvim-0.10') == 0 then -- for old versions
+      return vim.tbl_flatten(t)
+    end
+    return vim.iter(t):flatten():totable()
+  end
+  return table.concat(tbl_flatten({ ... }), path_sep)
 end
+
 _LSP_SIG_CFG = {
   bind = true, -- This is mandatory, otherwise border config won't get registered.
   doc_lines = 10, -- how many lines to show in doc, set to 0 if you only want the signature
@@ -964,25 +971,7 @@ M.on_attach = function(cfg, bufnr)
     end,
     desc = 'signature on complete done',
   })
-
-  if _LSP_SIG_CFG.cursorhold_update then
-    api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
-      group = augroup,
-      buffer = bufnr,
-      callback = function()
-        require('lsp_signature').on_UpdateSignature()
-      end,
-      desc = 'signature on cursor hold',
-    })
-    api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
-      group = augroup,
-      buffer = bufnr,
-      callback = function()
-        require('lsp_signature').check_signature_should_close()
-      end,
-      desc = 'signature on cursor hold',
-    })
-  end
+  helper.cursor_hold(_LSP_SIG_CFG.cursorhold_update, bufnr)
   -- stylua ignore end
 
   if type(cfg) == 'table' then
@@ -1152,6 +1141,16 @@ M.toggle_float_win = function()
     if _LSP_SIG_VT_NS then
       vim.api.nvim_buf_clear_namespace(0, _LSP_SIG_VT_NS, 0, -1)
     end
+
+    helper.cursor_hold(false, vim.api.nvim_get_current_buf())
+    vim.api.nvim_create_autocmd('InsertCharPre', {
+      callback = function()
+        -- disable cursor hold event until next insert enter
+        helper.cursor_hold(_LSP_SIG_CFG.cursorhold_update, vim.api.nvim_get_current_buf())
+      end,
+      once = true, -- trigger once
+    })
+    -- disable cursor hold event until next insert enter
     return _LSP_SIG_CFG.floating_window
   end
 
