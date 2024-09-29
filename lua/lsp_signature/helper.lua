@@ -877,6 +877,7 @@ helper.get_doc = function(result)
 end
 
 helper.completion_visible = function()
+  --[[
   local hascmp, cmp = pcall(require, 'cmp')
   if hascmp then
     -- reduce timeout from cmp's hardcoded 1000ms:
@@ -884,6 +885,7 @@ helper.completion_visible = function()
     cmp.core.filter:sync(42)
     return cmp.core.view:visible() or fn.pumvisible() == 1
   end
+  --]]
 
   return fn.pumvisible() ~= 0
 end
